@@ -1,0 +1,33 @@
+{
+  "name": "ascii85",
+  "version": "0.1.0",
+  "description": "Ascii85 (a.k.a. base85) encoding/decoding.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/huandu/node-ascii85.git"
+  },
+  "keywords": [
+    "base85",
+    "codec",
+    "bota",
+    "zmodem",
+    "postscript"
+  ],
+  "author": {
+    "name": "Huan Du",
+    "email": "npm@huandu.me"
+  },
+  "readmeFilename": "README.md",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/huandu/node-ascii85/issues"
+  },
+  "homepage": "https://github.com/huandu/node-ascii85",
+  "devDependencies": {
+    "chai": "*"
+  }
+}
