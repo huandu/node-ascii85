@@ -6,7 +6,7 @@ This node module can encode any binary string/buffer to an ascii85 string and de
 
 ## Install ##
 
-Install `ascii85` by `npm`.
+Install `ascii85` through `npm`.
 
 	npm install --save ascii85
 
