@@ -6,10 +6,10 @@ var ascii85 = require('../index');
 describe('Random codec', function() {
   var i;
 
-  for (i = 10; i < 100; i += 3) {
+  for (i = 10; i < 100; i += 1) {
     it('tests random binarys with length ' + i, function() {
       random(10, i).forEach(function(s) {
-        expect(ascii85.decode(ascii85.encode(s))).to.equal(s);
+        expect(ascii85.decode(ascii85.encode(s)).toString('binary')).to.equal(s.toString('binary'));
       });
     });
   }
@@ -26,7 +26,7 @@ function random(num, len) {
       s += String.fromCharCode(~~(Math.random() * 256));
     }
 
-    strs.push(s);
+    strs.push(Buffer.from? Buffer.from(s, 'binary'): new Buffer(s, 'binary'));
   }
 
   return strs;

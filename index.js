@@ -4,6 +4,47 @@
  */
 'use strict';
 
+// Buffer api is changed since v6.0.0. this wrapper is designed to leverage new
+// api features if possible without breaking old node.
+//
+// it's not a completed polyfill implementation. i just do necessary shims for this
+// package only.
+var _BufferFrom = Buffer.from || function() {
+  switch (arguments.length) {
+    case 1: return new Buffer(arguments[0]);
+    case 2: return new Buffer(arguments[0], arguments[1]);
+    case 3: return new Buffer(arguments[0], arguments[1], arguments[2]);
+    default: throw new Exception('unexpected call.');
+  }
+};
+var _BufferAlloc = Buffer.alloc || function(size, fill, encoding) {
+  var buf = new Buffer(size);
+
+  if (fill !== undefined) {
+    if (typeof encoding === "string") {
+      buf.fill(fill, encoding);
+    } else {
+      buf.fill(fill);
+    }
+  }
+
+  return buf;
+};
+var _BufferAllocUnsafe = Buffer.allocUnsafe || function(size) {
+  return new Buffer(size);
+};
+var _NewUint8Array = (function() {
+  if (typeof Uint8Array === 'undefined') {
+    return function(size) {
+      return new Array(size);
+    };
+  } else {
+    return function(size) {
+      return new Uint8Array(size);
+    }
+  }
+})();
+
 var ASCII85_BASE = 85;
 var ASCII85_CODE_START = 33;
 var ASCII85_CODE_END = ASCII85_CODE_START + ASCII85_BASE;
@@ -12,10 +53,14 @@ var ASCII85_NULL_STRING = ASCII85_NULL + ASCII85_NULL + ASCII85_NULL + ASCII85_N
 var ASCII85_ZERO = 'z';
 var ASCII85_ZERO_VALUE = ASCII85_ZERO.charCodeAt(0);
 var ASCII85_PADDING_VALUE = 'u'.charCodeAt(0);
+var ASCII85_ENCODING_GROUP_LENGTH = 4;
+var ASCII85_DECODING_GROUP_LENGTH = 5;
 var ASCII85_BLOCK_START = '<~';
-var ASCII85_BLOCK_START_VALUE = (new Buffer(ASCII85_BLOCK_START)).readInt16BE(0);
+var ASCII85_BLOCK_START_LENGTH = ASCII85_BLOCK_START.length;
+var ASCII85_BLOCK_START_VALUE = _BufferFrom(ASCII85_BLOCK_START).readUInt16BE(0);
 var ASCII85_BLOCK_END = '~>';
-var ASCII85_BLOCK_END_VALUE = (new Buffer(ASCII85_BLOCK_END)).readInt16BE(0);
+var ASCII85_BLOCK_END_LENGTH = ASCII85_BLOCK_END.length;
+var ASCII85_BLOCK_END_VALUE = _BufferFrom(ASCII85_BLOCK_END).readUInt16BE(0);
 var ASCII85_GROUP_SPACE = 'y';
 var ASCII85_GROUP_SPACE_VALUE = ASCII85_GROUP_SPACE.charCodeAt(0);
 var ASCII85_GROUP_SPACE_CODE = 0x20202020;
@@ -84,14 +129,15 @@ var defaultCodec = module.exports = new Ascii85();
  *   - groupSpace: Support group of all spaces in btoa 4.2. Default is false.
  */
 Ascii85.prototype.encode = function(data, options) {
-  var bytes = new Array(5);
-  var output = [];
+  var bytes = _NewUint8Array(5);
   var buf = data;
   var defOptions = this._options;
-  var table, delimiter, groupSpace, digits, cur, i, j, r, b, len, padding;
+  var output, offset, table, delimiter, groupSpace, digits, cur, i, j, r, b, len, padding;
 
-  if (!(buf instanceof Buffer)) {
-    buf = new Buffer(buf, 'binary');
+  if (typeof buf === "string") {
+    buf = _BufferFrom(buf, 'binary');
+  } else if (!(buf instanceof Buffer)) {
+    buf = _BufferFrom(buf);
   }
 
   // prepare options.
@@ -117,76 +163,83 @@ Ascii85.prototype.encode = function(data, options) {
     }
   }
 
+  // estimate output length and alloc buffer for it.
+  offset = 0;
+  len = Math.ceil(buf.length * ASCII85_DECODING_GROUP_LENGTH / ASCII85_ENCODING_GROUP_LENGTH) +
+        ASCII85_ENCODING_GROUP_LENGTH +
+        (delimiter? ASCII85_BLOCK_START_LENGTH + ASCII85_BLOCK_END_LENGTH: 0);
+  output = _BufferAllocUnsafe(len);
+
   if (delimiter) {
-    output.push(ASCII85_BLOCK_START);
+    offset += output.write(ASCII85_BLOCK_START, offset);
   }
-  
+
   // iterate over all data bytes.
   for (i = digits = cur = 0, len = buf.length; i < len; i++) {
     b = buf.readUInt8(i);
-    
+
     cur *= 1 << 8;
     cur += b;
     digits++;
-    
-    if (digits % 4) {
+
+    if (digits % ASCII85_ENCODING_GROUP_LENGTH) {
       continue;
     }
 
     if (groupSpace && cur === ASCII85_GROUP_SPACE_CODE) {
-      output.push(ASCII85_GROUP_SPACE);
+      offset += output.write(ASCII85_GROUP_SPACE, offset);
     } else if (cur) {
-      for (j = 4; j >= 0; j--) {
+      for (j = ASCII85_ENCODING_GROUP_LENGTH; j >= 0; j--) {
         r = cur % ASCII85_BASE;
         bytes[j] = r;
         cur = (cur - r) / ASCII85_BASE;
       }
 
-      for (j = 0; j < 5; j++) {
-        output.push(table[bytes[j]]);
+      for (j = 0; j < ASCII85_DECODING_GROUP_LENGTH; j++) {
+        offset += output.write(table[bytes[j]], offset);
       }
     } else {
-      output.push(ASCII85_ZERO);
+      offset += output.write(ASCII85_ZERO, offset);
     }
-    
+
     cur = 0;
     digits = 0;
   }
-  
+
   // add padding for remaining bytes.
   if (digits) {
     if (cur) {
-      padding = 4 - digits;
+      padding = ASCII85_ENCODING_GROUP_LENGTH - digits;
 
-      for (i = 4 - digits; i > 0; i--) {
+      for (i = ASCII85_ENCODING_GROUP_LENGTH - digits; i > 0; i--) {
         cur *= 1 << 8;
       }
 
-      for (j = 4; j >= 0; j--) {
+      for (j = ASCII85_ENCODING_GROUP_LENGTH; j >= 0; j--) {
         r = cur % ASCII85_BASE;
         bytes[j] = r;
         cur = (cur - r) / ASCII85_BASE;
       }
 
-      for (j = 0; j < 5; j++) {
-        output.push(table[bytes[j]]);
+      for (j = 0; j < ASCII85_DECODING_GROUP_LENGTH; j++) {
+        offset += output.write(table[bytes[j]], offset);
       }
-      
-      output = output.slice(0, output.length - padding);
+
+      offset -= padding;
     } else {
       // If remaining bytes are zero, need to insert '!' instead of 'z'.
       // This is a special case.
       for (i = 0; i < digits + 1; i++) {
-        output.push(table[0]);
+        offset += output.write(table[0], offset);
       }
     }
   }
-  
+
   if (delimiter) {
-    output.push('~>');
+    offset += output.write(ASCII85_BLOCK_END, offset);
   }
 
-  return output.join('');
+  return output.slice(0, offset);
 };
 
 /**
@@ -196,10 +249,9 @@ Ascii85.prototype.encode = function(data, options) {
  *                               Default is standard table.
  */
 Ascii85.prototype.decode = function(str, table) {
-  var output = '';
   var defOptions = this._options;
   var buf = str;
-  var digits, cur, i, c, t, len, padding;
+  var output, offset, digits, cur, i, c, t, len, padding;
 
   table = table || defOptions.decodingTable || ASCII85_DEFAULT_DECODING_TABLE;
 
@@ -216,31 +268,52 @@ Ascii85.prototype.decode = function(str, table) {
   }
 
   if (!(buf instanceof Buffer)) {
-    buf = new Buffer(buf);
+    buf = _BufferFrom(buf);
   }
 
+  // estimate output length and alloc buffer for it.
+  for (i = 0, t = 0, len = buf.length; i < len; i++) {
+    c = buf.readUInt8(i);
+
+    if (c === ASCII85_ZERO_VALUE || c === ASCII85_GROUP_SPACE_VALUE) {
+      t++;
+    }
+  }
+
+  offset = 0;
+  len = Math.ceil(buf.length * ASCII85_ENCODING_GROUP_LENGTH / ASCII85_DECODING_GROUP_LENGTH) +
+        t * ASCII85_ENCODING_GROUP_LENGTH +
+        ASCII85_DECODING_GROUP_LENGTH;
+  output = _BufferAllocUnsafe(len);
+
   // if str starts with delimiter ('<~'), it must end with '~>'.
-  if (buf.length >= 4 && buf.readInt16BE(0) === ASCII85_BLOCK_START_VALUE) {
-    if (buf.readInt16BE(buf.length - 2) !== ASCII85_BLOCK_END_VALUE) {
+  if (buf.length >= ASCII85_BLOCK_START_LENGTH + ASCII85_BLOCK_END_LENGTH && buf.readUInt16BE(0) === ASCII85_BLOCK_START_VALUE) {
+    for (i = buf.length - ASCII85_BLOCK_END_LENGTH; i > ASCII85_BLOCK_START_LENGTH; i--) {
+      if (buf.readUInt16BE(i) === ASCII85_BLOCK_END_VALUE) {
+        break;
+      }
+    }
+
+    if (i <= ASCII85_BLOCK_START_LENGTH) {
       throw new Error('Invalid ascii85 string delimiter pair.');
     }
 
-    buf = buf.slice(2, buf.length - 2);
+    buf = buf.slice(ASCII85_BLOCK_START_LENGTH, i);
   }
-  
-  for (i = digits = cur = 0, len = buf.length; i < len; i++) {    
+
+  for (i = digits = cur = 0, len = buf.length; i < len; i++) {
     c = buf.readUInt8(i);
 
     if (c === ASCII85_ZERO_VALUE) {
-      output += ASCII85_NULL_STRING;
+      offset += output.write(ASCII85_NULL_STRING, offset);
       continue;
     }
 
     if (c === ASCII85_GROUP_SPACE_VALUE) {
-      output += ASCII85_GROUP_SPACE_STRING;
+      offset += output.write(ASCII85_GROUP_SPACE_STRING, offset);
       continue;
     }
-    
+
     if (table[c] === undefined) {
       continue;
     }
@@ -248,33 +321,30 @@ Ascii85.prototype.decode = function(str, table) {
     cur *= ASCII85_BASE;
     cur += table[c];
     digits++;
-    
-    if (digits % 5) {
+
+    if (digits % ASCII85_DECODING_GROUP_LENGTH) {
       continue;
     }
-    
-    output += String.fromCharCode((cur >>> 24) & 0xFF);
-    output += String.fromCharCode((cur >>> 16) & 0xFF);
-    output += String.fromCharCode((cur >>> 8) & 0xFF);
-    output += String.fromCharCode(cur & 0xFF);
+
+    offset = output.writeUInt32BE(cur, offset);
     cur = 0;
     digits = 0;
   }
-  
+
   if (digits) {
-    padding = 5 - digits;
-    
+    padding = ASCII85_DECODING_GROUP_LENGTH - digits;
+
     for (i = 0; i < padding; i++) {
       cur *= ASCII85_BASE;
       cur += ASCII85_BASE - 1;
     }
 
     for (i = 3, len = padding - 1; i > len; i--) {
-      output += String.fromCharCode((cur >>> (i * 8)) & 0xFF);
+      offset = output.writeUInt8((cur >>> (i * 8)) & 0xFF, offset);
     }
   }
-  
-  return output;
+
+  return output.slice(0, offset);
 };
 
 /**
