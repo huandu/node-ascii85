@@ -1,5 +1,7 @@
 # Ascii85 (Base85) Encoding/Decoding #
 
+[![Build Status](https://travis-ci.org/huandu/node-ascii85.svg?branch=master)](https://travis-ci.org/huandu/node-ascii85)
+
 [Ascii85](http://en.wikipedia.org/wiki/Ascii85), also called Base85, is a form of binary-to-text encoding. By using five ASCII characters to represent four bytes of binary data, it is more efficient than uuencode or Base64, which use four characters to represent three bytes of data. See [ascii85 wikipedia page](http://en.wikipedia.org/wiki/Ascii85) for more details.
 
 This node module can encode any binary string/buffer to an ascii85 `Buffer` and decode encoded string back to original data.
