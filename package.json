@@ -1,6 +1,6 @@
 {
   "name": "ascii85",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Ascii85 (a.k.a. base85) encoding/decoding.",
   "main": "index.js",
   "scripts": {

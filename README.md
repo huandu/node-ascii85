@@ -2,7 +2,7 @@
 
 [Ascii85](http://en.wikipedia.org/wiki/Ascii85), also called Base85, is a form of binary-to-text encoding. By using five ASCII characters to represent four bytes of binary data, it is more efficient than uuencode or Base64, which use four characters to represent three bytes of data. See [ascii85 wikipedia page](http://en.wikipedia.org/wiki/Ascii85) for more details.
 
-This node module can encode any binary string/buffer to an ascii85 string and decode an encoded string back to data.
+This node module can encode any binary string/buffer to an ascii85 `Buffer` and decode encoded string back to original data.
 
 ## Install ##
 
@@ -16,34 +16,35 @@ Install `ascii85` through `npm`.
 var ascii85 = require('ascii85');
 var str = ascii85.encode('easy');
 
-str === 'ARTY*';                // true
-ascii85.decode(str) === 'easy'; // true
+str.toString() === 'ARTY*';                // true
+ascii85.decode(str).toString() === 'easy'; // true
 ```
 
 ## API ##
 
 `encode(data, [options])`
 
-Encode a binary data to ascii85 string.
+Encode a string or `Buffer`.
 
 * `data` is a string or a `Buffer`.
 * `options` is optional. If it's provided, it can be an array of character or an option object.
+* Return a `Buffer` with encoded data.
 
 See following sample for detail.
 
 ```javascript
 var ascii85 = require('ascii85');
-var str;
+var buf;
 
 // Most common use.
-str = ascii85.encode('easy');
+buf = ascii85.encode('easy');
 
 // Provide an array of charaters to encode the string.
 // The array must have 85 elements. It's useful to work
 // with a customized ascii85 encoding, e.g. ZeroMQ flavor.
-str = ascii85.encode('easy', ['0', '1', '2', ...]);
+buf = ascii85.encode('easy', ['0', '1', '2', ...]);
 
-str = ascii85.encode('easy', {
+buf = ascii85.encode('easy', {
 	table: [...],     // an array of characters to encode the string
 	delimiter: false, // result will be sorrounded by '<~' and '~>'
 	groupSpace: false // group spaces by 'u'
@@ -52,10 +53,11 @@ str = ascii85.encode('easy', {
 
 `decode(str, [table])`
 
-Decode a string to binary string.
+Decode a ascii85-encoded string or `Buffer`.
 
 * `str` is a string or a `Buffer`. All invalid characters will be discarded. If `str` starts with `<~`, it must have `~>` at the end. Otherwise, an error will be thrown.
 * `table` is a sparse array to map char code to decoded value for decoding.
+* Return a `Buffer` with decoded data.
 
 See following sample for detail.
 
@@ -88,7 +90,7 @@ var PostScript = new Ascii85({
 	delimiter: true
 });
 
-PostScript.encode('easy') === '<~ARTY*~>'; // true
+PostScript.encode('easy').toString() === '<~ARTY*~>'; // true
 ```
 
 `ZeroMQ`
@@ -97,7 +99,7 @@ A specialized codec for ZeroMQ which uses different charset.
 
 ```javascript
 var ZeroMQ = require('ascii85').ZeroMQ;
-ZeroMQ.encode('easy') === 'wNPU9'; // true
+ZeroMQ.encode('easy').toString() === 'wNPU9'; // true
 ```
 
 `PostScript`
@@ -106,7 +108,7 @@ A specialized codec for PostScript which always uses delimiter.
 
 ```javascript
 var PostScript = require('ascii85').PostScript;
-PostScript.encode('easy') === '<~ARTY*~>'; // true
+PostScript.encode('easy').toString() === '<~ARTY*~>'; // true
 ```
 
 ## License ##
