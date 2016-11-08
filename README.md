@@ -4,7 +4,7 @@
 
 [Ascii85](http://en.wikipedia.org/wiki/Ascii85), also called Base85, is a form of binary-to-text encoding. By using five ASCII characters to represent four bytes of binary data, it is more efficient than uuencode or Base64, which use four characters to represent three bytes of data. See [ascii85 wikipedia page](http://en.wikipedia.org/wiki/Ascii85) for more details.
 
-This node module can encode any binary string/buffer to an ascii85 `Buffer` and decode encoded string back to original data.
+This node module provides straight forward APIs to encode/decode data in ascii85 encoding. Both `string` and `Buffer` are accepted by `encode()` and `decode()` functions. The return value of both functions is a `Buffer` for better performance.
 
 ## Install ##
 
@@ -16,10 +16,10 @@ Install `ascii85` through `npm`.
 
 ```javascript
 var ascii85 = require('ascii85');
-var str = ascii85.encode('easy');
+var buf = ascii85.encode('easy');
 
-str.toString() === 'ARTY*';                // true
-ascii85.decode(str).toString() === 'easy'; // true
+buf.toString() === 'ARTY*';                // true
+ascii85.decode(buf).toString() === 'easy'; // true
 ```
 
 ## API ##
@@ -32,7 +32,7 @@ Encode a string or `Buffer`.
 * `options` is optional. If it's provided, it can be an array of character or an option object.
 * Return a `Buffer` with encoded data.
 
-See following sample for detail.
+Here is a sample.
 
 ```javascript
 var ascii85 = require('ascii85');
@@ -41,14 +41,14 @@ var buf;
 // Most common use.
 buf = ascii85.encode('easy');
 
-// Provide an array of charaters to encode the string.
+// Provide an array of characters to encode the string.
 // The array must have 85 elements. It's useful to work
 // with a customized ascii85 encoding, e.g. ZeroMQ flavor.
 buf = ascii85.encode('easy', ['0', '1', '2', ...]);
 
 buf = ascii85.encode('easy', {
 	table: [...],     // an array of characters to encode the string
-	delimiter: false, // result will be sorrounded by '<~' and '~>'
+	delimiter: false, // result will be surrounded by '<~' and '~>'
 	groupSpace: false // group spaces by 'u'
 });
 ```
@@ -60,8 +60,9 @@ Decode a ascii85-encoded string or `Buffer`.
 * `str` is a string or a `Buffer`. All invalid characters will be discarded. If `str` starts with `<~`, it must have `~>` at the end. Otherwise, an error will be thrown.
 * `table` is a sparse array to map char code to decoded value for decoding.
 * Return a `Buffer` with decoded data.
+* Invalid characters are ignored silently.
 
-See following sample for detail.
+Here is a sample.
 
 ```javascript
 var ascii85 = require('ascii85');
