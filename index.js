@@ -251,6 +251,8 @@ Ascii85.prototype.encode = function(data, options) {
 Ascii85.prototype.decode = function(str, table) {
   var defOptions = this._options;
   var buf = str;
+  var enableZero = true;
+  var enableGroupSpace = true;
   var output, offset, digits, cur, i, c, t, len, padding;
 
   table = table || defOptions.decodingTable || ASCII85_DEFAULT_DECODING_TABLE;
@@ -264,19 +266,31 @@ Ascii85.prototype.decode = function(str, table) {
       Object.keys(table).forEach(function(v) {
         t[v.charCodeAt(0)] = table[v];
       });
+      table = t;
     }
   }
+
+  enableZero = !table[ASCII85_ZERO_VALUE];
+  enableGroupSpace = !table[ASCII85_GROUP_SPACE_VALUE];
 
   if (!(buf instanceof Buffer)) {
     buf = _BufferFrom(buf);
   }
 
   // estimate output length and alloc buffer for it.
-  for (i = 0, t = 0, len = buf.length; i < len; i++) {
-    c = buf.readUInt8(i);
+  t = 0;
 
-    if (c === ASCII85_ZERO_VALUE || c === ASCII85_GROUP_SPACE_VALUE) {
-      t++;
+  if (enableZero || enableGroupSpace) {
+    for (i = 0, len = buf.length; i < len; i++) {
+      c = buf.readUInt8(i);
+
+      if (enableZero && c === ASCII85_ZERO_VALUE) {
+        t++;
+      }
+
+      if (enableGroupSpace && c === ASCII85_GROUP_SPACE_VALUE) {
+        t++;
+      }
     }
   }
 
@@ -304,12 +318,12 @@ Ascii85.prototype.decode = function(str, table) {
   for (i = digits = cur = 0, len = buf.length; i < len; i++) {
     c = buf.readUInt8(i);
 
-    if (c === ASCII85_ZERO_VALUE) {
+    if (enableZero && c === ASCII85_ZERO_VALUE) {
       offset += output.write(ASCII85_NULL_STRING, offset);
       continue;
     }
 
-    if (c === ASCII85_GROUP_SPACE_VALUE) {
+    if (enableGroupSpace && c === ASCII85_GROUP_SPACE_VALUE) {
       offset += output.write(ASCII85_GROUP_SPACE_STRING, offset);
       continue;
     }
